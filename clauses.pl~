@@ -16,6 +16,24 @@ pawn2(f2).
 pawn2(g2).
 pawn2(h2).
 
+position(a1,60).
+position(b1,71).
+position(c1,62).
+position(d1,73).
+position(e1,64).
+position(f1,75).
+position(g1,66).
+position(h1,77).
+
+position(a2,00).
+position(b2,11).
+position(c2,02).
+position(d2,13).
+position(e2,04).
+position(f2,15).
+position(g2,06).
+position(h2,17).
+
 canMove(Pawn,NewPos):-
   pawn1(Pawn),
   position(Pawn,CurrentPos),

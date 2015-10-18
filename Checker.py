@@ -20,6 +20,12 @@ class Pawn():
     def getName(self):
         return self.name
 
+    def getRow(self):
+        return self.row
+
+    def getColumn(self):
+        return self.col
+
 
 class Board(Frame):
     def __init__(self,pawnList1,pawnList2,r,root,game):
@@ -122,14 +128,17 @@ class Game():
     def __init__(self,radius=80):
         self.win = Tk()
         self.radius = radius
+        self.pawnList1 = []
+        self.pawnList2 = []
         self.generatePawns()
         self.playerOne = True
         self.pawnSelected = False
         self.selectedPawn = None
         self.prolog = Prolog()
         self.prolog.consult("clauses.pl")
+        self.defaultPosition()
         self.board = Board(self.pawnList1,self.pawnList2,self.radius,self.win,self)
-
+        
     def checkMove(self,pos):
         queryString = "canMove("+self.selectedPawn.getName()+","+str(pos)+")"
         l = list(self.prolog.query(queryString))
@@ -138,9 +147,43 @@ class Game():
         else:
             return True
 
+    def defaultPosition(self):
+        positions = ["position(a1,60)",
+                     "position(b1,71)",
+                     "position(c1,62)",
+                     "position(d1,73)",
+                     "position(e1,64)",
+                     "position(f1,75)",
+                     "position(g1,66)",
+                     "position(h1,77)",
+                     "position(a2,00)",
+                     "position(b2,11)",
+                     "position(c2,02)",
+                     "position(d2,13)",
+                     "position(e2,04)",
+                     "position(f2,15)",
+                     "position(g2,06)",
+                     "position(h2,17)"]
+        for position in positions:
+            self.prolog.assertz(position)
+        for pos in self.prolog.query("position(X,Y)"):
+            print pos["X"], pos["Y"]
+
+    def modifyPosition(self):
+        for position in self.prolog.query("retractall(position(_,_))"):
+            pass
+
+        for pawn in self.pawnList1:
+            self.prolog.asserta(
+                "position(" + pawn.getName() + "," +
+                str(pawn.getRow()) + str(pawn.getColumn()) + ")")
+        
+        for pawn in self.pawnList2:
+            self.prolog.assertz(
+                "position(" + pawn.getName() + "," +
+                str(pawn.getRow()) + str(pawn.getColumn()) + ")")
+            
     def generatePawns(self):
-        self.pawnList1 = []
-        self.pawnList2 = []
         for i in range(8):
             name = chr(97+i)
             self.pawnList1.append(Pawn(name+"1",6+(i%2),i,'blue',self.radius))
@@ -159,9 +202,16 @@ class Game():
     def move(self,pos):
         if self.checkMove(pos):
             self.selectedPawn.move(pos//10,pos%10)
-            return True
+            moved = True
         else:
-            return False
+            moved = False
+
+        if moved:
+            self.modifyPosition()
+            print "---------"
+            for pos in self.prolog.query("position(X,Y)"):
+                print pos["X"], pos["Y"]
+        
 
 
 Game(80)
