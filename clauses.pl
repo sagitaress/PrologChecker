@@ -16,7 +16,7 @@ pawn2(f2).
 pawn2(g2).
 pawn2(h2).
 
-hos(no).
+hos(e1).
 
 isPosition(0).
 isPosition(11).
@@ -54,121 +54,113 @@ isPosition(75).
 isPosition(66).
 isPosition(77).
 
-/*position(a2,00).
+/*position(a2,31).
 position(b2,11).
 position(c2,02).
 position(d2,13).
 position(e2,04).
 position(f2,15).
 position(g2,06).
-position(h2,17).
+position(h2,66).
 
 position(a1,60).
 position(b1,71).
 position(c1,62).
 position(d1,73).
-position(e1,64).
+position(e1,20).
 position(f1,75).
 position(g1,66).
 position(h1,77).*/
 
-safe(Position):-
-    X is Position//10,
-    X is 0.
-
-safe(Position):-
-    X is Position//10,
-    X is 7.
-
-safe(Position):-
-    X is Position mod 10,
-    X is 0.
-
-safe(Position):-
-    X is Position mod 10,
-    X is 7.
-
-canMove(Pawn,NewPos):-
-    pawn1(Pawn),
+validMove(Pawn,NewPos):-
+    position(Pawn,X),
     isPosition(NewPos),
-    position(Pawn,CurrentPos),
-    not(position(_,NewPos)),
-    NewPos is CurrentPos - 9.
+    direction(X,NewPos,Dir),
+    NewPos is X+Dir.
 
-canMove(Pawn,NewPos):-
-    pawn1(Pawn),
+validMove(Pawn,NewPos):-
+    position(Pawn,X),
     isPosition(NewPos),
-    position(Pawn,CurrentPos),
-    not(position(_,NewPos)),
-    NewPos is CurrentPos - 11.
-
-canMove(Pawn,NewPos):-
-    pawn2(Pawn),
-    isPosition(NewPos),
-    position(Pawn,CurrentPos),
-    not(position(_,NewPos)),
-    NewPos is CurrentPos + 9.
-
-canMove(Pawn,NewPos):-
-    pawn2(Pawn),
-    isPosition(NewPos),
-    position(Pawn,CurrentPos),
-    not(position(_,NewPos)),
-    NewPos is CurrentPos + 11.
-
-canMove(Pawn,NewPos):-
-    pawn1(Pawn),
     hos(Pawn),
-    isPosition(NewPos),
-    position(Pawn,CurrentPos),
-    not(position(_,NewPos)),
-    NewPos2 is NewPos mod 9,
-    NewPos2 is CurrentPos mod 9.
+    direction(X,NewPos,Dir),
+    NewPos2 is NewPos mod abs(Dir),
+    X2 is X mod abs(Dir),
+    NewPos2 is X2.
 
 canMove(Pawn,NewPos):-
     hos(Pawn),
+    validMove(Pawn,NewPos),
+    position(Pawn,OldPos),
+    direction(OldPos,NewPos,Dir),
+    clearPath(OldPos,NewPos,Dir).
+
+canMove(Pawn,NewPos):-
+    validMove(Pawn,NewPos),
+    not(position(_,NewPos)).
+
+canEat(Pawn,Target,NewPos):-
+    position(Pawn,X),
+    position(Target,Y),
+    validMove(Pawn,Y),
+    direction(X,Y,Dir),
+    NewPos is Y + Dir,
     isPosition(NewPos),
-    position(Pawn,CurrentPos),
+    not(position(_,NewPos)).
+
+clearPath(Pos1,Pos2,Dir):-
+    isPosition(Pos1),
+    isPosition(Pos2),
+    Res is Pos1 + Dir,
+    Pos2 = Res.
+
+clearPath(Pos1,Pos2,Dir):-
+    isPosition(Pos1),
+    isPosition(Pos2),
+    NewPos is Pos1 + Dir,
     not(position(_,NewPos)),
-    NewPos2 is NewPos mod 11,
-    NewPos2 is CurrentPos mod 11.
+    clearPath(NewPos,Pos2,Dir).
 
-canEat(Pawn,Target,NewPos):-
-    pawn1(Pawn),
-    pawn2(Target),
-    position(Pawn,X),
-    position(Target,Y),
-    Y is X - 9,
-    not(safe(Y)),
-    NewPos is Y-9,
-    not(position(_,NewPos)).
+direction(P1,P2,Dir):-
+    isUpperLeft(P1,P2),
+    Dir is 11.
 
-canEat(Pawn,Target,NewPos):-
-    pawn1(Pawn),
-    pawn2(Target),
-    position(Pawn,X),
-    position(Target,Y),
-    Y is X - 11,
-    not(safe(Y)),
-    NewPos is Y-11,
-    not(position(_,NewPos)).
+direction(P1,P2,Dir):-
+    isUpperRight(P1,P2),
+    Dir is 9.
 
-canEat(Pawn,Target,NewPos):-
-    pawn2(Pawn),
-    pawn1(Target),
-    position(Pawn,X),
-    position(Target,Y),
-    Y is X + 9,
-    not(safe(Y)),
-    NewPos is Y+9,
-    not(position(_,NewPos)).
+direction(P1,P2,Dir):-
+    isLowerLeft(P1,P2),
+    Dir is -9.
 
-canEat(Pawn,Target,NewPos):-
-    pawn2(Pawn),
-    pawn1(Target),
-    position(Pawn,X),
-    position(Target,Y),
-    Y is X + 11,
-    not(safe(Y)),
-    NewPos is Y+11,
-    not(position(_,NewPos)).
+direction(P1,P2,Dir):-
+    isLowerRight(P1,P2),
+    Dir is -11.
+
+isUpperLeft(P1,P2):-
+    isUpper(P1,P2),
+    onLeft(P1,P2).
+
+isUpperRight(P1,P2):-
+    isUpper(P1,P2),
+    onRight(P1,P2).
+
+isLowerRight(P1,P2):-
+    isLower(P1,P2),
+    onRight(P1,P2).
+
+isLowerLeft(P1,P2):-
+    isLower(P1,P2),
+    onLeft(P1,P2).
+
+isUpper(P1,P2):-
+    P1 // 10 < P2 // 10.
+
+isLower(P1,P2):-
+    P1 // 10 > P2 // 10.
+
+onLeft(P1,P2):-
+    P1 mod 10 < P2 mod 10.
+
+onRight(P1,P2):-
+    P1 mod 10 > P2 mod 10.
+
