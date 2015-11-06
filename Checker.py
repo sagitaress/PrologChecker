@@ -58,7 +58,7 @@ class Board(Frame):
         col = event.x//self.radius
         p = self.getPawnFromCoord(row,col)
         newPos = row*10+col
-        if p!=None and not self.game.pawnSelected and self.checkTurn(p):
+        if p!=None and not self.game.pawnSelected and self.checkTurn(p) and not self.game.chaining:
             self.game.selectPawn(p)
             self.highlightPawn(p)
         elif p==None:#clciked on a blank space
@@ -66,7 +66,10 @@ class Board(Frame):
                 self.deletePawn(self.game.selectedPawn)
                 self.game.move(newPos)
                 self.drawPawn(self.game.selectedPawn)
-            self.game.unselectPawn()
+            if not self.game.chaining:
+                self.game.unselectPawn()
+            else:
+                self.highlightPawn(self.game.selectedPawn)
 
     def highlightPawn(self,p):
         rowCoord = p.row*p.radius
@@ -133,6 +136,7 @@ class Game():
         self.generatePawns()
         self.playerOne = True
         self.pawnSelected = False
+        self.chaining = False
         self.capturing = False
         self.selectedPawn = None
         self.captured = None
@@ -143,11 +147,12 @@ class Game():
         self.board.mainloop()
 
     def getPawnByName(self,name):
-        for i in range(8):
-            if self.pawnList1[i].getName() == name:
-                return self.pawnList1[i]
-            elif self.pawnList2[i].getName() == name:
-                return self.pawnList2[i]
+        for p in self.pawnList1:
+            if p.getName() == name:
+                return p
+        for p in self.pawnList2:
+            if p.getName() == name:
+                return p
 
     def checkMove(self,pos):
         validMoveQuery = "canMove("+self.selectedPawn.getName()+",NewPos)"
@@ -155,23 +160,27 @@ class Game():
         validMoves = []
         for i in l:
             validMoves.extend(i.values())
-        capturingQuery = "canEat("+self.selectedPawn.getName()+",Target,NewPos)"
+        if pos in validMoves:
+            return True
+        else:
+            return False
+
+    def queryCapturing(self,p):
+        capturingQuery = "canEat("+p.getName()+",Target,NewPos)"
         l = list(self.prolog.query(capturingQuery))
         posAfterCapturing = []
         for i in l:
             posAfterCapturing.extend(i.values())
-        if pos in validMoves:
-            return True
-        elif pos in posAfterCapturing:
+        return posAfterCapturing
+
+    def checkCapturing(self,pos):
+        posAfterCapturing = self.queryCapturing(self.selectedPawn)
+        if pos in posAfterCapturing:
             self.captured = self.getPawnByName(posAfterCapturing[posAfterCapturing.index(pos)+1])
             self.capturing = True
             return True
         else:
             return False
-
-
-    #def checkEat(self,pawn,target):
-
 
     def defaultPosition(self):
         positions = ["position(a1,60)",
@@ -226,6 +235,8 @@ class Game():
         self.selectedPawn = None
 
     def addHos(self,pawn):
+        for position in self.prolog.query("retractall(hos(_))"):
+            pass
         self.prolog.asserta("hos("+pawn.getName()+")")
 
     def checkHos(self,pawn):
@@ -238,21 +249,36 @@ class Game():
                 pawn.hos = True
                 self.addHos(pawn)
 
+    def punish(self):
+        if self.playerOne:
+            for p in self.pawnList1:
+                if len(self.queryCapturing(p)) > 0:
+                    self.deletePawn(p)
+        else:
+            for p in self.pawnList2:
+                if len(self.queryCapturing(p)) > 0:
+                    self.deletePawn(p)
+
     def move(self,pos):
-        if self.checkMove(pos):
+        if self.checkCapturing(pos) or self.checkMove(pos):
             self.selectedPawn.move(pos//10,pos%10)
-            self.checkHos(self.selectedPawn)
             if self.capturing:
                 self.deletePawn(self.captured)
-                self.capturing = False
-                self.captured = None
             moved = True
         else:
             moved = False
 
         if moved:
-            self.playerOne = not self.playerOne
+            self.checkHos(self.selectedPawn)
+            self.chaining = True
+            if not self.capturing:
+                self.punish()
             self.modifyPosition()
+            if len(self.queryCapturing(self.selectedPawn)) == 0 and self.capturing or not self.capturing:
+                self.playerOne = not self.playerOne
+                self.chaining = False
+                self.capturing = False
+                self.captured = None
             print "---------"
             for pos in self.prolog.query("position(X,Y)"):
                 print pos["X"], pos["Y"]
@@ -262,7 +288,7 @@ class Game():
             self.pawnList1.remove(pawn)
         else:
             self.pawnList2.remove(pawn)
-        self.board.deletePawn(self.captured)
+        self.board.deletePawn(pawn)
 
 Game(80)
 
