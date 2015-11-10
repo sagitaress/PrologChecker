@@ -65,7 +65,8 @@ class Board(Frame):
             if self.game.selectedPawn !=None: #pawn selected
                 self.deletePawn(self.game.selectedPawn)
                 self.game.move(newPos)
-                self.drawPawn(self.game.selectedPawn)
+                if self.game.selectedPawn != None:
+                    self.drawPawn(self.game.selectedPawn)
             if not self.game.chaining:
                 self.game.unselectPawn()
             else:
@@ -142,6 +143,7 @@ class Game():
         self.captured = None
         self.prolog = Prolog()
         self.prolog.consult("clauses.pl")
+        self.prolog.asserta("hos(dummy)")
         self.defaultPosition()
         self.board = Board(self.pawnList1,self.pawnList2,self.radius,self.win,self)
         self.board.mainloop()
@@ -274,7 +276,7 @@ class Game():
             if not self.capturing:
                 self.punish()
             self.modifyPosition()
-            if len(self.queryCapturing(self.selectedPawn)) == 0 and self.capturing or not self.capturing:
+            if self.selectedPawn == None or (len(self.queryCapturing(self.selectedPawn)) == 0 and self.capturing or not self.capturing):
                 self.playerOne = not self.playerOne
                 self.chaining = False
                 self.capturing = False
@@ -289,6 +291,8 @@ class Game():
         else:
             self.pawnList2.remove(pawn)
         self.board.deletePawn(pawn)
+        if pawn == self.selectedPawn:
+            self.selectedPawn = None
 
 Game(80)
 

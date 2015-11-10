@@ -16,7 +16,6 @@ pawn2(f2).
 pawn2(g2).
 pawn2(h2).
 
-hos(e1).
 
 isPosition(0).
 isPosition(11).
@@ -54,6 +53,7 @@ isPosition(75).
 isPosition(66).
 isPosition(77).
 
+
 /*position(a2,31).
 position(b2,11).
 position(c2,02).
@@ -64,6 +64,7 @@ position(g2,06).
 position(h2,66).
 
 position(a1,60).
+position(a1,44).
 position(b1,71).
 position(c1,62).
 position(d1,73).
@@ -71,6 +72,7 @@ position(e1,20).
 position(f1,75).
 position(g1,66).
 position(h1,77).*/
+
 
 validMove(Pawn,NewPos):-
     position(Pawn,X),
@@ -94,11 +96,38 @@ canMove(Pawn,NewPos):-
     direction(OldPos,NewPos,Dir),
     clearPath(OldPos,NewPos,Dir).
 
+%canMove for player 1, non-king
 canMove(Pawn,NewPos):-
+    pawn1(Pawn),
+    isPosition(NewPos),
+    position(Pawn, OldPos),
+    OldPos > NewPos,
+    validMove(Pawn,NewPos),
+    not(position(_,NewPos)).
+
+%canMove for player 2, non-king
+canMove(Pawn,NewPos):-
+    pawn2(Pawn),
+    isPosition(NewPos),
+    position(Pawn, OldPos),
+    OldPos < NewPos,
     validMove(Pawn,NewPos),
     not(position(_,NewPos)).
 
 canEat(Pawn,Target,NewPos):-
+    pawn1(Pawn),
+    pawn2(Target),
+    position(Pawn,X),
+    position(Target,Y),
+    validMove(Pawn,Y),
+    direction(X,Y,Dir),
+    NewPos is Y + Dir,
+    isPosition(NewPos),
+    not(position(_,NewPos)).
+
+canEat(Pawn,Target,NewPos):-
+    pawn2(Pawn),
+    pawn1(Target),
     position(Pawn,X),
     position(Target,Y),
     validMove(Pawn,Y),
@@ -163,4 +192,33 @@ onLeft(P1,P2):-
 
 onRight(P1,P2):-
     P1 mod 10 > P2 mod 10.
+
+getAllValidMoves(Piece, ValidMoves):-
+	setof(Move1, canMove(Piece, Move1), Moves1),
+	setof(Move2, canEat(Piece, _, Move2), Moves2),
+	append(Moves1,Moves2,AllMoves),
+	sort(AllMoves, ValidMoves),!.
+
+getAllValidMoves(Piece, ValidMoves):-
+	setof(Move1, canMove(Piece, Move1), AllMoves),
+	%setof(Move2, canEat(Piece, _, Move2), Moves2),
+	%append(Moves1,Moves2,AllMoves),
+	sort(AllMoves, ValidMoves),!.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
