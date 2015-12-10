@@ -202,7 +202,7 @@ class Game():
                      "position(g2,06)",
                      "position(h2,17)"]
         for position in positions:
-            self.prolog.assertz(position)
+            self.prolog.asserta(position)
         for pos in self.prolog.query("position(X,Y)"):
             print pos["X"], pos["Y"]
 
@@ -216,15 +216,15 @@ class Game():
                 str(pawn.getRow()) + str(pawn.getColumn()) + ")")
         
         for pawn in self.pawnList2:
-            self.prolog.assertz(
+            self.prolog.asserta(
                 "position(" + pawn.getName() + "," +
                 str(pawn.getRow()) + str(pawn.getColumn()) + ")")
             
     def generatePawns(self):
         for i in range(8):
             name = chr(97+i)
-            self.pawnList1.append(Pawn(name+"1",6+(i%2),i,'blue',self.radius))
-            self.pawnList2.append(Pawn(name+"2",0+(i%2),i,'red',self.radius))
+            self.pawnList1.append(Pawn(name+"1", 6 + (i % 2), i, 'blue', self.radius))
+            self.pawnList2.append(Pawn(name+"2", 0 + (i % 2), i, 'red', self.radius))
 
     def selectPawn(self,p):
         self.pawnSelected = True
@@ -236,34 +236,36 @@ class Game():
 #        self.board.drawPawn(self.selectedPawn)
         self.selectedPawn = None
 
-    def addHos(self,pawn):
-        for position in self.prolog.query("retractall(hos(_))"):
-            pass
+    def addHos(self, pawn):
         self.prolog.asserta("hos("+pawn.getName()+")")
 
     def checkHos(self,pawn):
         if pawn in self.pawnList1:
             if pawn.row == 0:
-                pawn.hos = True
-                self.addHos(pawn)
+                if pawn.hos is not True:
+                    pawn.hos = True
+                    self.addHos(pawn)
         elif pawn in self.pawnList2:
             if pawn.row == 7:
-                pawn.hos = True
-                self.addHos(pawn)
+                if pawn.hos is not True:
+                    pawn.hos = True
+                    self.addHos(pawn)
 
     def punish(self):
         if self.playerOne:
             for p in self.pawnList1:
                 if len(self.queryCapturing(p)) > 0:
                     self.deletePawn(p)
+                    break
         else:
             for p in self.pawnList2:
                 if len(self.queryCapturing(p)) > 0:
                     self.deletePawn(p)
+                    break
 
-    def move(self,pos):
+    def move(self, pos):
         if self.checkCapturing(pos) or self.checkMove(pos):
-            self.selectedPawn.move(pos//10,pos%10)
+            self.selectedPawn.move(pos // 10, pos % 10)
             if self.capturing:
                 self.deletePawn(self.captured)
             moved = True
@@ -271,10 +273,10 @@ class Game():
             moved = False
 
         if moved:
-            self.checkHos(self.selectedPawn)
-            self.chaining = True
             if not self.capturing:
                 self.punish()
+            self.checkHos(self.selectedPawn)
+            self.chaining = True
             self.modifyPosition()
             if self.selectedPawn == None or (len(self.queryCapturing(self.selectedPawn)) == 0 and self.capturing or not self.capturing):
                 self.playerOne = not self.playerOne
@@ -284,15 +286,20 @@ class Game():
             print "---------"
             for pos in self.prolog.query("position(X,Y)"):
                 print pos["X"], pos["Y"]
+            print "-------------------------------"
+            for hos in self.prolog.query("hos(X)"):
+                print hos["X"]
         
-    def deletePawn(self,pawn):
+    def deletePawn(self, pawn):
         if pawn in self.pawnList1:
             self.pawnList1.remove(pawn)
         else:
             self.pawnList2.remove(pawn)
         self.board.deletePawn(pawn)
+
         if pawn == self.selectedPawn:
             self.selectedPawn = None
+
 
 Game(80)
 
