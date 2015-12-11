@@ -177,6 +177,16 @@ canMove(Pawn,NewPos,States):-
     position(Pawn,OldPos,States),
     OldPos < NewPos,
     not(position(_,NewPos,States)).
+
+canEat(Pawn,Target,NewPos,States):-
+    isOpposite(Pawn,Target),
+    position(Pawn,X,States),
+    position(Target,Y,States),
+    validMove(Pawn,Y,States),
+    direction(X,Y,Dir),
+    NewPos is Y + Dir,
+    isPosition(NewPos),
+    not(position(_,NewPos,States)).
 %----------------------------------------------------------------------------------------------------------
 
 canEat(Pawn,Target,NewPos):-
@@ -199,9 +209,19 @@ generateMoves([Name|Position],Tail,Result,States):-
     canMove(Name,X,States),
     append([[Name,X]],Tail,Result).
 
+generateCapturing([Name|Position],Tail,Result,States):-
+    canEat(Name,Target,NewPosition,States),
+    write('Capture!'),nl,
+    append([Name,NewPosition],Tail,AppendedList),
+    delete(AppendedList,[Target,_],Result).
+
 %all moves of a given states(change the position of X in the given states)
 allMoves([H|T],H,List,States):-
     generateMoves(H,T,List,States).
+
+%For capturing
+allMoves([H|T],H,List,States):-
+    generateCapturing(H,T,List,States).
 
 allMoves([H|T],X,[H|List],States):-
     allMoves(T,X,List,States).
@@ -210,7 +230,7 @@ minimax(States1,States2):-
     minimax_sub(States1,States2,0).
 
 %Third parameter is the limit of the search depth
-minimax_sub(_,_,5):-!.
+minimax_sub(_,_,2):-!.
 
 %max(player2) turn(tree height is even)
 minimax_sub(States1,States2,H):-
