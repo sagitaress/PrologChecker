@@ -16,7 +16,6 @@ pawn2(f2).
 pawn2(g2).
 pawn2(h2).
 
-hos(e1).
 
 isPosition(0).
 isPosition(11).
@@ -54,7 +53,7 @@ isPosition(75).
 isPosition(66).
 isPosition(77).
 
-position(a2,31).
+/*position(a2,31).
 position(b2,11).
 position(c2,02).
 position(d2,13).
@@ -70,7 +69,7 @@ position(d1,73).
 position(e1,20).
 position(f1,75).
 position(g1,66).
-position(h1,77).
+position(h1,77).*/
 
 isOpposite(P1,P2):-
     pawn1(P1),
@@ -80,10 +79,22 @@ isOpposite(P1,P2):-
     pawn2(P1),
     pawn1(P2).
 
+validDirection(Pawn,Dir):-
+    not(hos(Pawn)),
+    pawn1(Pawn),
+    Dir < 0.
+
+validDirection(Pawn,Dir):-
+    not(hos(Pawn)),
+    pawn2(Pawn),
+    Dir > 0.
+
+%valid move, no constraint on moving on top of another pawn nor direction of movement, ie. normal pawn can move backward
 validMove(Pawn,NewPos):-
     position(Pawn,X),
     isPosition(NewPos),
     direction(X,NewPos,Dir),
+    validDirection(Pawn,Dir),
     NewPos is X+Dir.
 
 validMove(Pawn,NewPos):-
@@ -95,6 +106,7 @@ validMove(Pawn,NewPos):-
     X2 is X mod abs(Dir),
     NewPos2 is X2.
 
+%can move, cannot move on top of others and normal pawn cannot go backward
 canMove(Pawn,NewPos):-
     hos(Pawn),
     validMove(Pawn,NewPos),
