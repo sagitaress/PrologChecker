@@ -16,7 +16,6 @@ pawn2(f2).
 pawn2(g2).
 pawn2(h2).
 
-
 isPosition(0).
 isPosition(11).
 isPosition(02).
@@ -53,23 +52,34 @@ isPosition(75).
 isPosition(66).
 isPosition(77).
 
-/*position(a2,31).
+% To test the program, comment these
+%/*
+hos(dummy).
+position(a2,00).
 position(b2,11).
 position(c2,02).
 position(d2,13).
 position(e2,04).
 position(f2,15).
 position(g2,06).
-position(h2,66).
+position(h2,17).
 
 position(a1,60).
 position(b1,71).
 position(c1,62).
 position(d1,73).
-position(e1,20).
+position(e1,64).
 position(f1,75).
 position(g1,66).
-position(h1,77).*/
+position(h1,77).
+%*/
+
+%The third parameter is the states, used in a search tree----------
+position(Pawn,Position,[[Pawn,Position]|T]).
+
+position(Pawn,Position,[H|T]):-
+    position(Pawn,Position,T).
+%------------------------------------------------------------------
 
 isOpposite(P1,P2):-
     pawn1(P1),
@@ -89,7 +99,7 @@ validDirection(Pawn,Dir):-
     pawn2(Pawn),
     Dir > 0.
 
-%valid move, no constraint on moving on top of another pawn nor direction of movement, ie. normal pawn can move backward
+%valid move, no constraint on moving on top of another pawn.
 validMove(Pawn,NewPos):-
     position(Pawn,X),
     isPosition(NewPos),
@@ -105,6 +115,24 @@ validMove(Pawn,NewPos):-
     NewPos2 is NewPos mod abs(Dir),
     X2 is X mod abs(Dir),
     NewPos2 is X2.
+
+%for use in a search tree-----------------------------------------------------------
+validMove(Pawn,NewPos,States):-
+    position(Pawn,X,States),
+    isPosition(NewPos),
+    direction(X,NewPos,Dir),
+    validDirection(Pawn,Dir),
+    NewPos is X+Dir.
+
+validMove(Pawn,NewPos,States):-
+    position(Pawn,X,States),
+    isPosition(NewPos),
+    hos(Pawn),
+    direction(X,NewPos,Dir),
+    NewPos2 is NewPos mod abs(Dir),
+    X2 is X mod abs(Dir),
+    NewPos2 is X2.
+%-----------------------------------------------------------------------------------
 
 %can move, cannot move on top of others and normal pawn cannot go backward
 canMove(Pawn,NewPos):-
@@ -128,6 +156,29 @@ canMove(Pawn,NewPos):-
     OldPos < NewPos,
     not(position(_,NewPos)).
 
+%canMove/3, for minimax, used in a search tree------------------------------------------------------------(working on)
+canMove(Pawn,NewPos,States):-
+    hos(Pawn),
+    validMove(Pawn,NewPos,States),
+    position(Pawn,OldPos,States),
+    direction(OldPos,NewPos,Dir),
+    clearPath(OldPos,NewPos,Dir,States).
+
+canMove(Pawn,NewPos,States):-
+    pawn1(Pawn),
+    validMove(Pawn,NewPos,States),
+    position(Pawn,OldPos,States),
+    OldPos > NewPos,
+    not(position(_,NewPos,States)).
+
+canMove(Pawn,NewPos,States):-
+    pawn2(Pawn),
+    validMove(Pawn,NewPos,States),
+    position(Pawn,OldPos,States),
+    OldPos < NewPos,
+    not(position(_,NewPos,States)).
+%----------------------------------------------------------------------------------------------------------
+
 canEat(Pawn,Target,NewPos):-
     isOpposite(Pawn,Target),
     position(Pawn,X),
@@ -138,27 +189,52 @@ canEat(Pawn,Target,NewPos):-
     isPosition(NewPos),
     not(position(_,NewPos)).
 
-append([],X,X).
-append(H,List2,C):-
-    append(,List,[H1|C]).
+%---------------------------- Predicates used in a search tree ------------------------------
+/*append([],X,X).
 
-generateMoves([Name|Position],Tail,Result):-
-    canMove(Name,X),
-    append([Name|X],Tail,Result).
+append([[Pawn,Position]],List,[[Pawn,Position]|C]):-
+    append([],List,C).*/
 
-allMoves([H|T],H,List):-
-    generateMoves(H,T,List).
-allMoves([H|T],X,List):-
-    allMoves(T,X,List).
+generateMoves([Name|Position],Tail,Result,States):-
+    canMove(Name,X,States),
+    append([[Name,X]],Tail,Result).
 
-/*minimax(States):-
-    minimax_sub(States,0).
+%all moves of a given states(change the position of X in the given states)
+allMoves([H|T],H,List,States):-
+    generateMoves(H,T,List,States).
 
-minimax_sub(States,H):-
-    elementOf(States,X),
-    canMove(X)
+allMoves([H|T],X,[H|List],States):-
+    allMoves(T,X,List,States).
+
+minimax(States1,States2):-
+    minimax_sub(States1,States2,0).
+
+%Third parameter is the limit of the search depth
+minimax_sub(_,_,5):-!.
+
+%max(player2) turn(tree height is even)
+minimax_sub(States1,States2,H):-
+    0 is H mod 2,
     H1 is H+1,
-    minimax_sub()*/
+    append(States1,States2,States),
+    allMoves(States2,All,NewStates,States),
+    write('Height: '),write(H1),nl,
+    %write('State1: '),write(States1),nl,
+    write('State2: '),write(NewStates),nl,
+    minimax_sub(States1,NewStates,H1).
+
+%min(player1) turn(tree height is odd)
+minimax_sub(States1,States2,H):-
+    1 is H mod 2,
+    H1 is H+1,
+    append(States1,States2,States),
+    allMoves(States1,All,NewStates,States),
+    write('Height: '),write(H1),nl,
+    write('State1: '),write(NewStates),nl,
+    %write('State2: '),write(States2),nl,
+    minimax_sub(NewStates,States2,H1).
+
+%-------------------------------------------------------------------------------------------
 
 clearPath(Pos1,Pos2,Dir):-
     isPosition(Pos1),
@@ -172,6 +248,21 @@ clearPath(Pos1,Pos2,Dir):-
     NewPos is Pos1 + Dir,
     not(position(_,NewPos)),
     clearPath(NewPos,Pos2,Dir).
+
+%clearPath/4, used in a search tree------------------------------------------------------------------------
+clearPath(Pos1,Pos2,Dir,States):-
+    isPosition(Pos1),
+    isPosition(Pos2),
+    Res is Pos1 + Dir,
+    Pos2 = Res.
+
+clearPath(Pos1,Pos2,Dir,States):-
+    isPosition(Pos1),
+    isPosition(Pos2),
+    NewPos is Pos1 + Dir,
+    not(position(_,NewPos,States)),
+    clearPath(NewPos,Pos2,Dir,States).
+%----------------------------------------------------------------------------------------------
 
 direction(P1,P2,Dir):-
     isUpperLeft(P1,P2),
