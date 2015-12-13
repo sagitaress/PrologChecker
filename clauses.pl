@@ -55,6 +55,8 @@ isPosition(77).
 % To test the program, comment these
 %/*
 hos(dummy).
+
+%Player Red
 position(a2,00).
 position(b2,11).
 position(c2,02).
@@ -63,7 +65,9 @@ position(e2,04).
 position(f2,15).
 position(g2,06).
 position(h2,17).
+%position(h2,33).
 
+%Player Blue
 position(a1,60).
 position(b1,71).
 position(c1,62).
@@ -72,6 +76,7 @@ position(e1,64).
 position(f1,75).
 position(g1,66).
 position(h1,77).
+%position(h1,44).
 %*/
 
 %The third parameter is the states, used in a search tree----------
@@ -83,7 +88,7 @@ position(Pawn,Position,[H|T]):-
 
 isOpposite(P1,P2):-
     pawn1(P1),
-    pawn2(P2).
+    pawn2(P2),!.
 
 isOpposite(P1,P2):-
     pawn2(P1),
@@ -188,6 +193,7 @@ canEat(Pawn,Target,NewPos):-
     NewPos is Y + Dir,
     isPosition(NewPos),
     not(position(_,NewPos)).
+
 
 %---------------------------- Predicates used in a search tree ------------------------------
 /*append([],X,X).
@@ -308,4 +314,103 @@ onLeft(P1,P2):-
 onRight(P1,P2):-
     P1 mod 10 > P2 mod 10.
 
+
+minimax(List, MaxPair):-
+    !.
+
+findMin([], LowestPair, LowestPair):-!.
+findMin([[CurrentPiece,CurrentValue]|List], [CurrentLowestPiece|CurrentLowestValue], LowestPair):-
+    CurrentValue < CurrentLowestValue,
+    findMin(List, [CurrentPiece,CurrentValue], LowestPair),
+    !.
+
+findMin([[CurrentPiece,CurrentValue]|List], [CurrentLowestPiece|CurrentLowestValue], LowestPair):-
+    findMin(List, [CurrentLowestPiece|CurrentLowestValue], LowestPair).
+
+findMax([], HighestPair, HighestPair):-!.
+findMax([[CurrentPiece,CurrentValue]|List], [CurrentHighestPiece|CurrentHighestValue], HighestPair):-
+    CurrentValue > CurrentHighestValue,
+    findMin(List, [CurrentPiece,CurrentValue], HighestPair),
+    !.
+
+findMax([[CurrentPiece,CurrentValue]|List], [CurrentHighestPiece|CurrentHighestValue], HighestPair):-
+    findMin(List, [CurrentLowestPiece|CurrentLowestValue], HighestPair).
+
+eval(playerRed, States, Hoses, Value):-
+    assertStates(States),
+    assertHoses(Hoses),
+    assertz(evalHos(dummy)),
+    countEatable(playerRed, Value),
+    retractall(evalPosition(_,_)),
+    retractall(evalHos(_)).
+
+
+eval(playerBlue, States, Hoses, Value):-
+    assertStates(States),
+    assertHoses(Hoses),
+    assertz(evalHos(dummy)),
+    countEatable(playerBlue, Value),
+    retractall(evalPosition(_,_)),
+    retractall(evalHos(_)).
+
+assertStates([]):-!.
+assertStates([[Piece,Position]|List]):-
+    assertz(evalPosition(Piece,Position)),
+    assertStates(List).
+
+assertHoses([]):-!.
+assertHoses([Hos|List]):-
+    assertz(evalHos(Hos)),
+    assertStates(List).
+
+evalCanEat(Pawn,Target,NewPos):-
+    isOpposite(Pawn,Target),
+    evalPosition(Pawn,X),
+    evalPosition(Target,Y),
+    evalValidMove(Pawn,Y),
+    direction(X,Y,Dir),
+    NewPos is Y + Dir,
+    isPosition(NewPos),
+    not(position(_,NewPos)).
+
+%for eval
+evalValidMove(Pawn,NewPos):-
+    evalPosition(Pawn,X),
+    isPosition(NewPos),
+    direction(X,NewPos,Dir),
+    evalValidDirection(Pawn,Dir),
+    NewPos is X+Dir,!.
+
+evalValidMove(Pawn,NewPos):-
+    evalPosition(Pawn,X),
+    isPosition(NewPos),
+    evalHos(Pawn),
+    evalValidDirection(X,NewPos,Dir),
+    NewPos2 is NewPos mod abs(Dir),
+    X2 is X mod abs(Dir),
+    NewPos2 is X2.
+
+evalValidDirection(Pawn,Dir):-
+    not(evalHos(Pawn)),
+    pawn1(Pawn),
+    Dir < 0.
+
+evalValidDirection(Pawn,Dir):-
+    not(evalHos(Pawn)),
+    pawn2(Pawn),
+    Dir > 0.
+
+countEatable(playerRed, Count):-
+    findall(RedPiece, (pawn1(RedPiece), evalPosition(RedPiece,_), pawn2(BluePiece), evalPosition(BluePiece,_), evalCanEat(RedPiece,BluePiece,_)), Eatable),
+    length(Eatable, Plus),
+    %findall(BluePiece, (pawn1(RedPiece), evalPosition(RedPiece,_), pawn2(BluePiece), evalPosition(BluePiece,_), evalCanEat(BluePiece,RedPiece,_)), Eaten),
+    %length(Eaten, Minus),
+    Count is Plus.
+
+countEatable(playerBlue, Count):-
+    findall(BluePiece, (pawn1(RedPiece), evalPosition(RedPiece,_), pawn2(BluePiece), evalPosition(BluePiece,_), evalCanEat(BluePiece,RedPiece,_)), Eatable),
+    length(Eatable, Plus),
+    %findall(RedPiece, (pawn1(RedPiece), evalPosition(RedPiece,_), pawn2(BluePiece), evalPosition(BluePiece,_), evalCanEat(RedPiece,BluePiece,_)), Eaten),
+    %length(Eaten, Minus),
+    Count is Plus.
 
