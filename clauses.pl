@@ -212,12 +212,9 @@ canEat(Pawn,Target,NewPos):-
     not(position(_,NewPos)).
 
 %---------------------------- Predicates used in a search tree ------------------------------(working on)
-modifyHoses([],_,[]).
+treeDepth(2).
 
-modifyHoses([[Pawn,Position]|StatesTail],Hoses,NewHoses):-
-    pawn1(Pawn),
-    not(hos(Pawn,Hoses)),
-    Position // 10 < 1.
+modifyHoses([],_,[]).
 
 %hos for player1
 modifyHoses([[Pawn,Position]|StatesTail],Hoses,[Pawn|NewHosesTail]):-
@@ -253,7 +250,14 @@ separate([[Pawn,Position]|STail],States1,[[Pawn,Position]|S2Tail]):-
 
 generateMoves([Name,_],NewStates,States,Hoses):-
     canMove(Name,Position,States,Hoses),
+    not(canEat(Name,_,_,States,Hoses)),
     modifyStates(States,Name,Position,NewStates).
+
+%punish
+generateMoves([Name,_],NewStates,States,Hoses):-
+    canMove(Name,Position,States,Hoses),
+    canEat(Name,_,_,States,Hoses),
+    delete(States,[Name,_],NewStates).
 
 generateCapturing([Name,Position],States,States,Hoses,Chaining):-
     Chaining > 0,
@@ -283,42 +287,55 @@ minimax(States,Hoses):-
     minimax_sub(States,Hoses,0,1).
 
 %Second parameter is the limit of the search depth
-minimax_sub(States,Hoses,2,1):-!.
+%max turn so we check whether the value is less than the least value so far
+minimax_sub(States,Hoses,Depth,1):-!.
+%   treeDepth(Depth),
+%   0 is Depth % 2,
 %   eval(States,Hoses,Value),
-%   minimaxVal2(OldVal),
+%   minimaxVal(OldVal,Depth),
 %   Value < OldVal,
-%   retractall('minimaxVal2(_)'),
-%   asserta('minimaxVal2()'),
+%   retractall(minimaxVal(_,Depth)),
+%   asserta(minimaxVal(Value,Depth)),
+%   !.
 
-
-%minimax_sub(States,Hoses,2,1):-!.
-
-%   eval(States,Hoses)
+%min turn
+%minimax_sub(States,Hoses,Depth,1):-!.
+%   treeDepth(Depth),
+%   1 is Depth % 2,
+%   eval(States,Hoses,Value),
+%   minimaxVal(OldVal,Depth),
+%   Value > OldVal,
+%   retractall(minimaxVal(_,Depth)),
+%   asserta(minimaxVal(Value,Depth)),
+%   !.
 
 %max(player2) turn(tree height is even)
-minimax_sub(States,Hoses,H,Val):-
-    0 is H mod 2,
-    H1 is H+1,
+minimax_sub(States,Hoses,Depth,Val):-
+    0 is Depth mod 2,
+    Depth1 is Depth+1,
     separate(States,States1,States2),
     allMoves(States2,All,NewStates,States,Hoses),
     separate(NewStates,NewStates1,NewStates2),
-    write('Height: '),write(H1),nl,
+    write('Height: '),write(Depth1),nl,
     %write('State1: '),write(NewStates1),nl,
     write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,H1,Val).
+    minimax_sub(NewStates,Hoses,Depth1,Val).
+    %minimaxVal(OldVal,Depth),
+    %Value < OldVal,
+    %rectractall(minimaxVal)
 
 
 %min(player1) turn(tree height is odd)
-minimax_sub(States,Hoses,H,Val):-
-    1 is H mod 2,
-    H1 is H+1,
+minimax_sub(States,Hoses,Depth,Val):-
+    1 is Depth mod 2,
+    Depth1 is Depth+1,
     separate(States,States1,States2),
     allMoves(States1,All,NewStates,States,Hoses),
     separate(NewStates,NewStates1,NewStates2),
-    write('Height: '),write(H1),nl,
+    write('Height: '),write(Depth1),nl,
     write('State1: '),write(NewStates1),nl,
     %write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,H1,Val).
+    minimax_sub(NewStates,Hoses,Depth1,Val).
 
 %-------------------------------------------------------------------------------------------
 
