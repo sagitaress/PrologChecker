@@ -52,7 +52,14 @@ isPosition(75).
 isPosition(66).
 isPosition(77).
 
-% To test the program, comment these
+%For using in a search tree------------------------------------
+hos(Pawn,[Pawn|HosesTail]).
+
+hos(Pawn,[H|HosesTail]):-
+    hos(Pawn,HosesTail).
+%--------------------------------------------------------------
+
+% To test the program, comment out these
 %/*
 hos(dummy).
 
@@ -122,17 +129,17 @@ validMove(Pawn,NewPos):-
     NewPos2 is X2.
 
 %for use in a search tree-----------------------------------------------------------
-validMove(Pawn,NewPos,States):-
+validMove(Pawn,NewPos,States,Hoses):-
     position(Pawn,X,States),
     isPosition(NewPos),
     direction(X,NewPos,Dir),
     validDirection(Pawn,Dir),
     NewPos is X+Dir.
 
-validMove(Pawn,NewPos,States):-
+validMove(Pawn,NewPos,States,Hoses):-
     position(Pawn,X,States),
     isPosition(NewPos),
-    hos(Pawn),
+    hos(Pawn,Hoses),
     direction(X,NewPos,Dir),
     NewPos2 is NewPos mod abs(Dir),
     X2 is X mod abs(Dir),
@@ -161,26 +168,36 @@ canMove(Pawn,NewPos):-
     OldPos < NewPos,
     not(position(_,NewPos)).
 
-%canMove/3, for minimax, used in a search tree------------------------------------------------------------(working on)
-canMove(Pawn,NewPos,States):-
-    hos(Pawn),
-    validMove(Pawn,NewPos,States),
+%canMove/5, for minimax, used in a search tree------------------------------------------------------------
+canMove(Pawn,NewPos,States,Hoses):-
+    hos(Pawn,Hoses),
+    validMove(Pawn,NewPos,States,Hoses),
     position(Pawn,OldPos,States),
     direction(OldPos,NewPos,Dir),
     clearPath(OldPos,NewPos,Dir,States).
 
-canMove(Pawn,NewPos,States):-
+canMove(Pawn,NewPos,States,Hoses):-
     pawn1(Pawn),
-    validMove(Pawn,NewPos,States),
+    validMove(Pawn,NewPos,States,Hoses),
     position(Pawn,OldPos,States),
     OldPos > NewPos,
     not(position(_,NewPos,States)).
 
-canMove(Pawn,NewPos,States):-
+canMove(Pawn,NewPos,States,Hoses):-
     pawn2(Pawn),
-    validMove(Pawn,NewPos,States),
+    validMove(Pawn,NewPos,States,Hoses),
     position(Pawn,OldPos,States),
     OldPos < NewPos,
+    not(position(_,NewPos,States)).
+
+canEat(Pawn,Target,NewPos,States,Hoses):-
+    isOpposite(Pawn,Target),
+    position(Pawn,X,States),
+    position(Target,Y,States),
+    validMove(Pawn,Y,States,Hoses),
+    direction(X,Y,Dir),
+    NewPos is Y + Dir,
+    isPosition(NewPos),
     not(position(_,NewPos,States)).
 %----------------------------------------------------------------------------------------------------------
 
@@ -194,51 +211,114 @@ canEat(Pawn,Target,NewPos):-
     isPosition(NewPos),
     not(position(_,NewPos)).
 
+%---------------------------- Predicates used in a search tree ------------------------------(working on)
+modifyHoses([],_,[]).
 
-%---------------------------- Predicates used in a search tree ------------------------------
-/*append([],X,X).
+modifyHoses([[Pawn,Position]|StatesTail],Hoses,NewHoses):-
+    pawn1(Pawn),
+    not(hos(Pawn,Hoses)),
+    Position // 10 < 1.
 
-append([[Pawn,Position]],List,[[Pawn,Position]|C]):-
-    append([],List,C).*/
+%hos for player1
+modifyHoses([[Pawn,Position]|StatesTail],Hoses,[Pawn|NewHosesTail]):-
+    pawn1(Pawn),
+    not(hos(Pawn,Hoses)),
+    Position // 10 < 1,
+    modifyHoses(StatesTail,Hoses,NewHosesTail).
 
-generateMoves([Name|Position],Tail,Result,States):-
-    canMove(Name,X,States),
-    append([[Name,X]],Tail,Result).
+%hos for player2
+modifyHoses([[Pawn,Position]|StatesTail],Hoses,[Pawn|NewHosesTail]):-
+    pawn2(Pawn),
+    not(hos(Pawn,Hoses)),
+    Position // 10 > 7.
+
+modifyStates([],_,_,[]).
+
+modifyStates([[Pawn2,Position2]|STail],Pawn,Position,[[Pawn2,Position2]|ResultTail]):-
+    not(Pawn2==Pawn),
+    modifyStates(STail,Pawn,Position,ResultTail).
+
+modifyStates([[Pawn,_]|STail],Pawn,Position,[[Pawn,Position]|ResultTail]):-
+    modifyStates(STail,Pawn,Position,ResultTail).
+
+separate([],[],[]).
+
+separate([[Pawn,Position]|STail],[[Pawn,Position]|S1Tail],States2):-
+    pawn1(Pawn),
+    separate(STail,S1Tail,States2).
+
+separate([[Pawn,Position]|STail],States1,[[Pawn,Position]|S2Tail]):-
+    pawn2(Pawn),
+    separate(STail,States1,S2Tail).
+
+generateMoves([Name,_],NewStates,States,Hoses):-
+    canMove(Name,Position,States,Hoses),
+    modifyStates(States,Name,Position,NewStates).
+
+generateCapturing([Name,Position],States,States,Hoses,Chaining):-
+    Chaining > 0,
+    not(canEat(Name,Target,NewPosition,States,Hoses)).
+
+%Tail = tail of state1 or 2
+generateCapturing([Name,Position],NewStates,States,Hoses,Chaining):-
+    canEat(Name,Target,NewPosition,States,Hoses),
+    write('Capture!'),nl,
+    modifyStates(States,Name,NewPosition,ModifiedStates),
+    delete(ModifiedStates,[Target,_],DeletedStates),
+    Chaining1 is Chaining+1,
+    generateCapturing([Name,NewPosition],NewStates,DeletedStates,Chaining1).
 
 %all moves of a given states(change the position of X in the given states)
-allMoves([H|T],H,List,States):-
-    generateMoves(H,T,List,States).
+allMoves([H|T],H,NewStates,States,Hoses):-
+    generateMoves(H,NewStates,States,Hoses).
 
-allMoves([H|T],X,[H|List],States):-
-    allMoves(T,X,List,States).
+%For capturing
+allMoves([H|T],H,NewStates,States,Hoses):-
+    generateCapturing(H,NewStates,States,Hoses,0).
 
-minimax(States1,States2):-
-    minimax_sub(States1,States2,0).
+allMoves([H|T],X,NewStates,States,Hoses):-
+    allMoves(T,X,NewStates,States).
 
-%Third parameter is the limit of the search depth
-minimax_sub(_,_,5):-!.
+minimax(States,Hoses):-
+    minimax_sub(States,Hoses,0,1).
+
+%Second parameter is the limit of the search depth
+minimax_sub(States,Hoses,2,1):-!.
+%   eval(States,Hoses,Value),
+%   minimaxVal2(OldVal),
+%   Value < OldVal,
+%   retractall('minimaxVal2(_)'),
+%   asserta('minimaxVal2()'),
+
+
+%minimax_sub(States,Hoses,2,1):-!.
+
+%   eval(States,Hoses)
 
 %max(player2) turn(tree height is even)
-minimax_sub(States1,States2,H):-
+minimax_sub(States,Hoses,H,Val):-
     0 is H mod 2,
     H1 is H+1,
-    append(States1,States2,States),
-    allMoves(States2,All,NewStates,States),
+    separate(States,States1,States2),
+    allMoves(States2,All,NewStates,States,Hoses),
+    separate(NewStates,NewStates1,NewStates2),
     write('Height: '),write(H1),nl,
-    %write('State1: '),write(States1),nl,
-    write('State2: '),write(NewStates),nl,
-    minimax_sub(States1,NewStates,H1).
+    %write('State1: '),write(NewStates1),nl,
+    write('State2: '),write(NewStates2),nl,
+    minimax_sub(NewStates,Hoses,H1,Val).
+
 
 %min(player1) turn(tree height is odd)
-minimax_sub(States1,States2,H):-
+minimax_sub(States,Hoses,H,Val):-
     1 is H mod 2,
     H1 is H+1,
-    append(States1,States2,States),
-    allMoves(States1,All,NewStates,States),
+    separate(States,States1,States2),
+    allMoves(States1,All,NewStates,States,Hoses),
+    separate(NewStates,NewStates1,NewStates2),
     write('Height: '),write(H1),nl,
-    write('State1: '),write(NewStates),nl,
-    %write('State2: '),write(States2),nl,
-    minimax_sub(NewStates,States2,H1).
+    write('State1: '),write(NewStates1),nl,
+    %write('State2: '),write(NewStates2),nl,
+    minimax_sub(NewStates,Hoses,H1,Val).
 
 %-------------------------------------------------------------------------------------------
 
