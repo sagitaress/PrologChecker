@@ -300,6 +300,19 @@ class Game():
         if pawn == self.selectedPawn:
             self.selectedPawn = None
 
+    def generateStates(self):
+        lst = []
+        for pos in self.prolog.query("position(X,Y)"):
+            #print pos["X"]
+            lst.append([pos["X"], pos["Y"]])
+        return lst
+
+    def generateHoses(self):
+        lst = []
+        for pos in self.prolog.query("hos(X)"):
+            #print pos["X"]
+            lst.append(pos["X"])
+        return lst
 
 Game(80)
 

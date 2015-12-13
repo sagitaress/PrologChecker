@@ -60,7 +60,7 @@ hos(Pawn,[H|HosesTail]):-
 %--------------------------------------------------------------
 
 % To test the program, comment out these
-%/*
+/*
 hos(dummy).
 
 %Player Red
@@ -71,8 +71,8 @@ position(d2,13).
 position(e2,04).
 position(f2,15).
 position(g2,06).
-position(h2,17).
-%position(h2,33).
+%position(h2,17).
+position(h2,33).
 
 %Player Blue
 position(a1,60).
@@ -82,9 +82,9 @@ position(d1,73).
 position(e1,64).
 position(f1,75).
 position(g1,66).
-position(h1,77).
-%position(h1,44).
-%*/
+%position(h1,77).
+position(h1,44).
+*/
 
 %The third parameter is the states, used in a search tree----------
 position(Pawn,Position,[[Pawn,Position]|T]).
@@ -95,7 +95,7 @@ position(Pawn,Position,[H|T]):-
 
 isOpposite(P1,P2):-
     pawn1(P1),
-    pawn2(P2),!.
+    pawn2(P2).
 
 isOpposite(P1,P2):-
     pawn2(P1),
@@ -417,6 +417,55 @@ findMax([[CurrentPiece,CurrentValue]|List], [CurrentHighestPiece|CurrentHighestV
     findMin(List, [CurrentLowestPiece|CurrentLowestValue], HighestPair).
 
 eval(playerRed, States, Hoses, Value):-
+    findall([Piece,Pos], (pawn2(Piece), pawn1(Enemy),canEat(Piece, Enemy, Pos, States, Hoses)), NewPos),
+    stateUpdate(playerRed, States, Hoses, NewPos, [], Value).
+
+eval(playerBlue, States, Hoses, Value):-
+    findall([Piece,Pos], (pawn1(Piece), pawn2(Enemy),canEat(Piece, Enemy, Pos, States, Hoses)), NewPos),
+    stateUpdate(playerBlue, States, Hoses, NewPos, [], Value).
+
+stateUpdate(_,_,_,[],ValueList, MaxValue):-
+    max_list(ValueList, MaxValue),!.
+
+stateUpdate(Player, States, Hoses, [[Piece,NewPos]|Remaining], ValueList, MaxValue):-
+    %modifyHoses(NewStates, Hoses, NewHoses),
+    canEat(Piece, Enemy, NewPos, States, Hoses),
+    subtract(States, [[Enemy,_]], States2),
+    write(States2),nl,
+    modifyStates(States2, Piece, NewPos, NewStates),
+    evalChain(Player, Piece, NewStates, Hoses, Val),
+    stateUpdate(Player, States, Hoses, Remaining,[Val|ValueList], MaxValue).
+
+evalChain(playerRed, CurrentPiece, States, Hoses, Value):-
+    findall(Pos, (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), []),
+    separate(States, RedPieces, BluePieces),
+    length(RedPieces, PlayerCount),
+    length(BluePieces, EnemyCount),
+    Value is PlayerCount - EnemyCount,!.
+
+evalChain(playerBlue, CurrentPiece, States, Hoses, Value):-
+    findall([CurrentPiece,Pos], (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), []),
+    separate(States, RedPieces, BluePieces),
+    length(RedPieces, EnemyCount),
+    length(BluePieces, PlayerCount),
+    Value is PlayerCount - EnemyCount,!.
+
+evalChain(Player, CurrentPiece, States, Hoses, Value):-
+    findall([CurrentPiece,Pos], (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), NewPos),
+    stateUpdate(Player, States, Hoses, NewPos, [], Value).
+
+generateStates(States):-
+    findall([Piece,Pos], position(Piece, Pos), States).
+
+generateHoses(Hoses):-
+    findall(Piece, hos(Piece), Hoses).
+
+
+%----------------------------------------------
+%------------------Unused----------------------
+
+/*
+eval(playerRed, States, Hoses, Value):-
     assertStates(States),
     assertHoses(Hoses),
     assertz(evalHos(dummy)),
@@ -493,4 +542,4 @@ countEatable(playerBlue, Count):-
     %findall(RedPiece, (pawn1(RedPiece), evalPosition(RedPiece,_), pawn2(BluePiece), evalPosition(BluePiece,_), evalCanEat(RedPiece,BluePiece,_)), Eaten),
     %length(Eaten, Minus),
     Count is Plus.
-
+*/
