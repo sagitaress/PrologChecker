@@ -82,8 +82,9 @@ class Board(Frame):
             if self.isIn(row,col,pawn):
                 return pawn
         for pawn in self.pawnList2:
-            if self.isIn(row,col,pawn):
-                return pawn
+            #if self.isIn(row,col,pawn):
+            #    return pawn
+            return None
 
 
     def isIn(self,row,col,p):
@@ -283,6 +284,7 @@ class Game():
                 self.chaining = False
                 self.capturing = False
                 self.captured = None
+                self.botPlays()
             print "---------"
             for pos in self.prolog.query("position(X,Y)"):
                 print pos["X"], pos["Y"]
@@ -300,6 +302,40 @@ class Game():
         if pawn == self.selectedPawn:
             self.selectedPawn = None
 
+    def botPlay(self):
+        self.prolog.query('minimax()')
+        state = []
+        for i in range(len(self.pawnList1)):
+            pawn = self.pawnList1[i]
+            pos = state[i][1]
+            if state[i][0] == pawn and state[i][1] != pawn.row*10+pawn.col:
+                self.board.deletePawn(pawn)
+                self.selectedPawn.move(pos // 10, pos % 10)
+                self.board.drawPawn(pawn)
+
+        for i in range(len(self.pawnList2)):
+            pawn = self.pawnList2[i]
+            pos = state[i][1]
+            if state[i][0] == pawn and state[i][1] != pawn.row*10+pawn.col:
+                self.board.deletePawn(pawn)
+                self.selectedPawn.move(pos // 10, pos % 10)
+                self.board.drawPawn(pawn)
+
+        for i in range(len(state)):
+            state[i] = state[i][0]
+
+        for pawn in self.pawnList1:
+            if pawn.name not in state:
+                self.pawnList1.remove(pawn.name)
+                self.board.deletePawn(pawn)
+
+        for pawn in self.pawnList2:
+            if pawn.name not in state:
+                self.pawnList2.remove(pawn.name)
+                self.board.deletePawn(pawn)
+
+        self.modifyPosition()
+        self.playerOne = not self.playerOne
 
 Game(80)
 

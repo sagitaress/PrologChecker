@@ -130,6 +130,7 @@ validMove(Pawn,NewPos):-
 
 %for use in a search tree-----------------------------------------------------------
 validMove(Pawn,NewPos,States,Hoses):-
+    not(hos(Pawn,Hoses)),
     position(Pawn,X,States),
     isPosition(NewPos),
     direction(X,NewPos,Dir),
@@ -170,6 +171,7 @@ canMove(Pawn,NewPos):-
 
 %canMove/5, for minimax, used in a search tree------------------------------------------------------------
 canMove(Pawn,NewPos,States,Hoses):-
+    not(position(_,NewPos,States)),
     hos(Pawn,Hoses),
     validMove(Pawn,NewPos,States,Hoses),
     position(Pawn,OldPos,States),
@@ -212,7 +214,7 @@ canEat(Pawn,Target,NewPos):-
     not(position(_,NewPos)).
 
 %---------------------------- Predicates used in a search tree ------------------------------(working on)
-treeDepth(2).
+maxTreeDepth(2).
 
 modifyHoses([],_,[]).
 
@@ -270,7 +272,7 @@ generateCapturing([Name,Position],NewStates,States,Hoses,Chaining):-
     modifyStates(States,Name,NewPosition,ModifiedStates),
     delete(ModifiedStates,[Target,_],DeletedStates),
     Chaining1 is Chaining+1,
-    generateCapturing([Name,NewPosition],NewStates,DeletedStates,Chaining1).
+    generateCapturing([Name,NewPosition],NewStates,DeletedStates,Hoses,Chaining1).
 
 %all moves of a given states(change the position of X in the given states)
 allMoves([H|T],H,NewStates,States,Hoses):-
@@ -281,52 +283,108 @@ allMoves([H|T],H,NewStates,States,Hoses):-
     generateCapturing(H,NewStates,States,Hoses,0).
 
 allMoves([H|T],X,NewStates,States,Hoses):-
-    allMoves(T,X,NewStates,States).
+    allMoves(T,X,NewStates,States,Hoses).
 
-minimax(States,Hoses):-
-    minimax_sub(States,Hoses,0,1).
-
-%Second parameter is the limit of the search depth
+%not the first of the depth (max)
 %max turn so we check whether the value is less than the least value so far
-minimax_sub(States,Hoses,Depth,1):-!.
-%   treeDepth(Depth),
-%   0 is Depth % 2,
-%   eval(States,Hoses,Value),
-%   minimaxVal(OldVal,Depth),
-%   Value < OldVal,
-%   retractall(minimaxVal(_,Depth)),
-%   asserta(minimaxVal(Value,Depth)),
-%   !.
+modifiedMinimaxVal(Depth,States,Hoses):-
+   not(minimaxVal(empty,Depth,_)),
+   0 is Depth mod 2,
+   minimaxVal(OldVal,Depth,_),
+   Depth1 is Depth+1,
+   minimaxVal(NewVal,Depth1,_),
+   NewVal < OldVal,
+   retractall(minimaxVal(_,Depth,_)),
+   asserta(minimaxVal(NewVal,Depth,States)),
+   !.
 
-%min turn
-%minimax_sub(States,Hoses,Depth,1):-!.
-%   treeDepth(Depth),
-%   1 is Depth % 2,
-%   eval(States,Hoses,Value),
-%   minimaxVal(OldVal,Depth),
-%   Value > OldVal,
-%   retractall(minimaxVal(_,Depth)),
-%   asserta(minimaxVal(Value,Depth)),
-%   !.
+%not the first of the depth (max) no modification
+%max turn so we check whether the value is less than the least value so far
+modifiedMinimaxVal(Depth,States,Hoses):-
+   not(minimaxVal(empty,Depth,_)),
+   0 is Depth mod 2,
+   minimaxVal(OldVal,Depth,_),
+   Depth1 is Depth+1,
+   minimaxVal(NewVal,Depth1,_),
+   NewVal >= OldVal,
+   !.
+
+%not the first in the depth (min)
+modifiedMinimaxVal(Depth,States,Hoses):-
+   not(minimaxVal(empty,Depth,_)),
+   1 is Depth mod 2,
+   minimaxVal(OldVal,Depth,_),
+   Depth1 is Depth+1,
+   minimaxVal(NewVal,Depth1,_),
+   NewVal > OldVal,
+   retractall(minimaxVal(_,Depth,_)),
+   asserta(minimaxVal(NewVal,Depth,States)),
+   !.
+
+%not the first in the depth (min) no modification
+modifiedMinimaxVal(Depth,States,Hoses):-
+   not(minimaxVal(empty,Depth,_)),
+   1 is Depth mod 2,
+   minimaxVal(OldVal,Depth,_),
+   Depth1 is Depth+1,
+   minimaxVal(NewVal,Depth1,_),
+   NewVal =< OldVal,
+   !.
+
+%the first, not leaf
+modifiedMinimaxVal(Depth,States,Hoses):-
+   minimaxVal(empty,Depth,_),
+   Depth1 is Depth + 1,
+   minimaxVal(NewVal,Depth1,_),
+   retractall(minimaxVal(_,Depth,_)),
+   asserta(minimaxVal(NewVal,Depth,States)).
+
+%leaf node
+modifiedMinimaxVal(Depth,States,Hoses):-
+   maxTreeDepth(Depth),
+   %write('modified!'),nl,
+   eval(States,Hoses,NewVal),
+   retractall(minimaxVal(_,Depth,_)),
+   asserta(minimaxVal(NewVal,Depth,States)).
+
+initializeVal(0):-
+    asserta(minimaxVal(empty,0,empty)),
+    !.
+
+initializeVal(Depth):-
+    asserta(minimaxVal(empty,Depth,empty)),
+    Depth1 is Depth-1,
+    initializeVal(Depth1).
+
+minimax(States,Hoses,NewStates):-
+    maxTreeDepth(Depth),
+    initializeVal(Depth),
+    minimax_sub(States,Hoses,0),
+    minimaxVal(_,1,NewStates),
+    retractall(minimaxVal(_,_,_)).
+
+%Tree terminated!
+%Second parameter is the limit of the search depth
+minimax_sub(States,Hoses,Depth):-
+   maxTreeDepth(Depth),
+   modifiedMinimaxVal(Depth,States,Hoses),
+   !.
 
 %max(player2) turn(tree height is even)
-minimax_sub(States,Hoses,Depth,Val):-
+minimax_sub(States,Hoses,Depth):-
     0 is Depth mod 2,
     Depth1 is Depth+1,
     separate(States,States1,States2),
     allMoves(States2,All,NewStates,States,Hoses),
     separate(NewStates,NewStates1,NewStates2),
     write('Height: '),write(Depth1),nl,
-    %write('State1: '),write(NewStates1),nl,
+    %%write('State1: '),write(NewStates1),nl,
     write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,Depth1,Val).
-    %minimaxVal(OldVal,Depth),
-    %Value < OldVal,
-    %rectractall(minimaxVal)
-
+    minimax_sub(NewStates,Hoses,Depth1),
+    modifiedMinimaxVal(Depth,States,Hoses).
 
 %min(player1) turn(tree height is odd)
-minimax_sub(States,Hoses,Depth,Val):-
+minimax_sub(States,Hoses,Depth):-
     1 is Depth mod 2,
     Depth1 is Depth+1,
     separate(States,States1,States2),
@@ -334,8 +392,12 @@ minimax_sub(States,Hoses,Depth,Val):-
     separate(NewStates,NewStates1,NewStates2),
     write('Height: '),write(Depth1),nl,
     write('State1: '),write(NewStates1),nl,
-    %write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,Depth1,Val).
+    %%write('State2: '),write(NewStates2),nl,
+    minimax_sub(NewStates,Hoses,Depth1),
+    modifiedMinimaxVal(Depth,States,Hoses).
+
+eval(_,_,1).%:-
+    %write('Terminated'),nl,!.
 
 %-------------------------------------------------------------------------------------------
 
