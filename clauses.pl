@@ -61,7 +61,7 @@ hos(Pawn,[H|HosesTail]):-
 
 % To test the program, comment out these
 
-%hos(dummy).
+hos(dummy).
 /*
 %Player Red
 position(a2,00).
@@ -352,24 +352,8 @@ modifiedMinimaxVal(Depth,States,Hoses,NewVal):-
    maxTreeDepth(Depth),
    eval(playerBlue,States,Hoses,NewVal).
 
-initializeVal(0):-
-    asserta(minimaxVal(empty,0,empty)),
-    !.
-
-initializeVal(Depth):-
-    asserta(minimaxVal(empty,Depth,empty)),
-    Depth1 is Depth-1,
-    initializeVal(Depth1).
-
-assertStates([]).
-
-assertStates([[Pawn,Position]|T]):-
-    asserta(position(Pawn,Position)),
-    assertStates(T).
-
 minimax(States,Hoses,NewStates):-
     maxTreeDepth(Depth),
-    initializeVal(Depth),
     minimax_sub(States,Hoses,0,Val,NewStates).
     %findall([Val,States],minimax_sub(States,Hoses,0,Val,NewStates),List),
     %write('List: '),write(List),nl,
@@ -560,6 +544,8 @@ eval(playerBlue, States, Hoses, Value):-
     findall([Piece,Pos], (pawn1(Piece), pawn2(Enemy),canEat(Piece, Enemy, Pos, States, Hoses)), NewPos),
     stateUpdate(playerBlue, States, Hoses, NewPos, [], Value).
 
+stateUpdate(_,_,_,[],[],0):-!.
+
 stateUpdate(_,_,_,[],ValueList, MaxValue):-
     max_list(ValueList, MaxValue),!.
 
@@ -582,7 +568,7 @@ evalChain(playerRed, CurrentPiece, States, Hoses, Value):-
     length(RedHoses, PlayerHosesCount),
     length(BlueHoses, EnemyHosesCount),
     Value is PlayerCount + 2 * PlayerHosesCount - EnemyCount - 2 * EnemyHosesCount,
-    write(States),nl,write(Hoses),write(Value), nl,!.
+    !.
 
 evalChain(playerBlue, CurrentPiece, States, Hoses, Value):-
     findall([CurrentPiece,Pos], (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), []),
