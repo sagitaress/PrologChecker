@@ -204,8 +204,8 @@ class Game():
                      "position(h2,17)"]
         for position in positions:
             self.prolog.asserta(position)
-        for pos in self.prolog.query("position(X,Y)"):
-            print pos["X"], pos["Y"]
+        #for pos in self.prolog.query("position(X,Y)"):
+            #print pos["X"], pos["Y"]
 
     def modifyPosition(self):
         for position in self.prolog.query("retractall(position(_,_))"):
@@ -285,12 +285,12 @@ class Game():
                 self.capturing = False
                 self.captured = None
                 self.botPlays()
-            print "---------"
+            '''print "---------"
             for pos in self.prolog.query("position(X,Y)"):
                 print pos["X"], pos["Y"]
             print "-------------------------------"
             for hos in self.prolog.query("hos(X)"):
-                print hos["X"]
+                print hos["X"]'''
         
     def deletePawn(self, pawn):
         if pawn in self.pawnList1:
@@ -315,36 +315,47 @@ class Game():
             #print pos["X"]
             lst.append(pos["X"])
         return lst
-    def botPlay(self):
-        self.prolog.query('minimax()')
-        state = []
-        for i in range(len(self.pawnList1)):
+    def botPlays(self):
+        s = str(self.generateStates())
+        s = s.replace("'",'')
+        h = str(self.generateHoses())
+        h = h.replace("'",'')
+        states = []
+        for res in self.prolog.query("minimax("+s+","+h+",NewStates)"):
+	        states.append(res["NewStates"])
+        #for res in self.prolog.query("minimaxVal(_,1,States)"):
+        #    states.append(res["States"])
+        states = states[0]
+        for i in range(len(states)):
+            states[i][0] = str(states[i][0])
+        '''for i in range(len(self.pawnList1)):
             pawn = self.pawnList1[i]
-            pos = state[i][1]
-            if state[i][0] == pawn and state[i][1] != pawn.row*10+pawn.col:
+            pos = states[i][1]
+            if states[i][0] == pawn and states[i][1] != pawn.row*10+pawn.col:
                 self.board.deletePawn(pawn)
                 self.selectedPawn.move(pos // 10, pos % 10)
-                self.board.drawPawn(pawn)
+                self.board.drawPawn(pawn)'''
 
         for i in range(len(self.pawnList2)):
             pawn = self.pawnList2[i]
-            pos = state[i][1]
-            if state[i][0] == pawn and state[i][1] != pawn.row*10+pawn.col:
-                self.board.deletePawn(pawn)
-                self.selectedPawn.move(pos // 10, pos % 10)
-                self.board.drawPawn(pawn)
+            pos = states[i][1]
+            for j in range(len(states)):
+                if states[j][0] == pawn.name and states[j][1] != pawn.row*10+pawn.col:
+                    self.board.deletePawn(pawn)
+                    pawn.move(states[j][1]//10, states[j][1]%10)
+                    self.board.drawPawn(pawn)
 
-        for i in range(len(state)):
-            state[i] = state[i][0]
+        for i in range(len(states)):
+            states[i] = states[i][0]
 
         for pawn in self.pawnList1:
-            if pawn.name not in state:
-                self.pawnList1.remove(pawn.name)
+            if pawn.name not in states:
+                self.pawnList1.remove(pawn)
                 self.board.deletePawn(pawn)
 
         for pawn in self.pawnList2:
-            if pawn.name not in state:
-                self.pawnList2.remove(pawn.name)
+            if pawn.name not in states:
+                self.pawnList2.remove(pawn)
                 self.board.deletePawn(pawn)
 
         self.modifyPosition()

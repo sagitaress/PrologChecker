@@ -60,9 +60,9 @@ hos(Pawn,[H|HosesTail]):-
 %--------------------------------------------------------------
 
 % To test the program, comment out these
-/*
-hos(dummy).
 
+%hos(dummy).
+/*
 %Player Red
 position(a2,00).
 position(b2,11).
@@ -85,6 +85,12 @@ position(g1,66).
 %position(h1,77).
 position(h1,44).
 */
+
+initializePosition([]).
+
+initializePosition([[Pawn,Position]|T]):-
+    asserta(position(Pawn,Position)),
+    initializePosition(T).
 
 %The third parameter is the states, used in a search tree----------
 position(Pawn,Position,[[Pawn,Position]|T]).
@@ -214,22 +220,35 @@ canEat(Pawn,Target,NewPos):-
     not(position(_,NewPos)).
 
 %---------------------------- Predicates used in a search tree ------------------------------(working on)
-maxTreeDepth(2).
+maxTreeDepth(3).
 
 modifyHoses([],_,[]).
 
 %hos for player1
 modifyHoses([[Pawn,Position]|StatesTail],Hoses,[Pawn|NewHosesTail]):-
     pawn1(Pawn),
-    not(hos(Pawn,Hoses)),
+    %not(hos(Pawn,Hoses)),
     Position // 10 < 1,
-    modifyHoses(StatesTail,Hoses,NewHosesTail).
+    modifyHoses(StatesTail,Hoses,NewHosesTail),!.
 
 %hos for player2
 modifyHoses([[Pawn,Position]|StatesTail],Hoses,[Pawn|NewHosesTail]):-
     pawn2(Pawn),
-    not(hos(Pawn,Hoses)),
-    Position // 10 > 7.
+    %not(hos(Pawn,Hoses)),
+    Position // 10 > 6,
+    modifyHoses(StatesTail,Hoses,NewHosesTail),!.
+
+modifyHoses([[Pawn,Position]|StatesTail],Hoses,NewHosesTail):-
+    modifyHoses(StatesTail,Hoses,NewHosesTail).
+
+removeHoses(_, [], Ans, Ans):-!.
+
+removeHoses(States, [Hos|Tail], RemainingHoses, Ans):-
+    not(member([Hos,_], States)),
+    removeHoses(States, Tail, RemainingHoses, Ans),!.
+
+removeHoses(States, [Hos|Tail], RemainingHoses, Ans):-
+    removeHoses(States, Tail, [Hos|RemainingHoses], Ans).
 
 modifyStates([],_,_,[]).
 
@@ -261,6 +280,7 @@ generateMoves([Name,_],NewStates,States,Hoses):-
     canEat(Name,_,_,States,Hoses),
     delete(States,[Name,_],NewStates).
 
+
 generateCapturing([Name,Position],States,States,Hoses,Chaining):-
     Chaining > 0,
     not(canEat(Name,Target,NewPosition,States,Hoses)).
@@ -268,7 +288,7 @@ generateCapturing([Name,Position],States,States,Hoses,Chaining):-
 %Tail = tail of state1 or 2
 generateCapturing([Name,Position],NewStates,States,Hoses,Chaining):-
     canEat(Name,Target,NewPosition,States,Hoses),
-    write('Capture!'),nl,
+    %write('Capture!'),nl,
     modifyStates(States,Name,NewPosition,ModifiedStates),
     delete(ModifiedStates,[Target,_],DeletedStates),
     Chaining1 is Chaining+1,
@@ -289,30 +309,7 @@ allMoves([H|T],X,NewStates,States,Hoses):-
 %max turn so we check whether the value is less than the least value so far
 modifiedMinimaxVal(Depth,States,Hoses):-
    not(minimaxVal(empty,Depth,_)),
-   0 is Depth mod 2,
-   minimaxVal(OldVal,Depth,_),
-   Depth1 is Depth+1,
-   minimaxVal(NewVal,Depth1,_),
-   NewVal < OldVal,
-   retractall(minimaxVal(_,Depth,_)),
-   asserta(minimaxVal(NewVal,Depth,States)),
-   !.
-
-%not the first of the depth (max) no modification
-%max turn so we check whether the value is less than the least value so far
-modifiedMinimaxVal(Depth,States,Hoses):-
-   not(minimaxVal(empty,Depth,_)),
-   0 is Depth mod 2,
-   minimaxVal(OldVal,Depth,_),
-   Depth1 is Depth+1,
-   minimaxVal(NewVal,Depth1,_),
-   NewVal >= OldVal,
-   !.
-
-%not the first in the depth (min)
-modifiedMinimaxVal(Depth,States,Hoses):-
-   not(minimaxVal(empty,Depth,_)),
-   1 is Depth mod 2,
+   %0 is Depth mod 2,
    minimaxVal(OldVal,Depth,_),
    Depth1 is Depth+1,
    minimaxVal(NewVal,Depth1,_),
@@ -321,10 +318,11 @@ modifiedMinimaxVal(Depth,States,Hoses):-
    asserta(minimaxVal(NewVal,Depth,States)),
    !.
 
-%not the first in the depth (min) no modification
+%not the first of the depth (max) no modification
+%max turn so we check whether the value is less than the least value so far
 modifiedMinimaxVal(Depth,States,Hoses):-
    not(minimaxVal(empty,Depth,_)),
-   1 is Depth mod 2,
+   %0 is Depth mod 2,
    minimaxVal(OldVal,Depth,_),
    Depth1 is Depth+1,
    minimaxVal(NewVal,Depth1,_),
@@ -339,13 +337,20 @@ modifiedMinimaxVal(Depth,States,Hoses):-
    retractall(minimaxVal(_,Depth,_)),
    asserta(minimaxVal(NewVal,Depth,States)).
 
-%leaf node
-modifiedMinimaxVal(Depth,States,Hoses):-
+%leaf node playerRed(2,or max)
+modifiedMinimaxVal(Depth,States,Hoses,NewVal):-
+   0 is Depth mod 2,
+   %write('leafRed'),nl,
    maxTreeDepth(Depth),
-   %write('modified!'),nl,
-   eval(States,Hoses,NewVal),
-   retractall(minimaxVal(_,Depth,_)),
-   asserta(minimaxVal(NewVal,Depth,States)).
+   eval(playerRed,States,Hoses,NewVal).
+
+%leaf node playerBlue(1,or min)
+modifiedMinimaxVal(Depth,States,Hoses,NewVal):-
+   %write('test'),nl,
+   1 is Depth mod 2,
+   %write('leafBlue'),nl,
+   maxTreeDepth(Depth),
+   eval(playerBlue,States,Hoses,NewVal).
 
 initializeVal(0):-
     asserta(minimaxVal(empty,0,empty)),
@@ -356,47 +361,99 @@ initializeVal(Depth):-
     Depth1 is Depth-1,
     initializeVal(Depth1).
 
+assertStates([]).
+
+assertStates([[Pawn,Position]|T]):-
+    asserta(position(Pawn,Position)),
+    assertStates(T).
+
 minimax(States,Hoses,NewStates):-
     maxTreeDepth(Depth),
     initializeVal(Depth),
-    minimax_sub(States,Hoses,0),
-    minimaxVal(_,1,NewStates),
-    retractall(minimaxVal(_,_,_)).
+    minimax_sub(States,Hoses,0,Val,NewStates).
+    %findall([Val,States],minimax_sub(States,Hoses,0,Val,NewStates),List),
+    %write('List: '),write(List),nl,
+    %maxValState(List,empty,[_,NewStates])
+    %write(NewStates),nl.
+
+maxValState([], [CurrentMaxVal,CurrentMaxState], [CurrentMaxVal,CurrentMaxState]):-!.
+
+maxValState([[Val, States]|Tail], empty, AnsMaxPair):-
+    maxValState(Tail, [Val,States], AnsMaxPair).
+
+maxValState([[Val, States]|Tail], [CurrentMaxVal,CurrentMaxState], AnsMaxPair):-
+    Val >= CurrentMaxVal,
+    maxValState(Tail, [Val,States], AnsMaxPair),!.
+
+maxValState([[Val, States]|Tail], [CurrentMaxVal,CurrentMaxState], AnsMaxPair):-
+    Val < CurrentMaxVal,
+    maxValState(Tail, [CurrentMaxVal,CurrentMaxState], AnsMaxPair),!.
 
 %Tree terminated!
 %Second parameter is the limit of the search depth
-minimax_sub(States,Hoses,Depth):-
+   minimax_sub(States,Hoses,Depth,Val,States):-
    maxTreeDepth(Depth),
-   modifiedMinimaxVal(Depth,States,Hoses),
+   %write('Height: '),write(Depth),nl,
+   %write('State: '),write(States),nl,
+   %write('tree terminated'),nl,
+   modifiedMinimaxVal(Depth,States,Hoses,Val),
+   %write('val = '),
+   %write(States),nl,
    !.
 
-%max(player2) turn(tree height is even)
-minimax_sub(States,Hoses,Depth):-
+%min(player2) turn(tree height is even)
+minimax_sub(States,Hoses,Depth,MaxVal,MaxState):-
     0 is Depth mod 2,
     Depth1 is Depth+1,
     separate(States,States1,States2),
-    allMoves(States2,All,NewStates,States,Hoses),
-    separate(NewStates,NewStates1,NewStates2),
-    write('Height: '),write(Depth1),nl,
-    %%write('State1: '),write(NewStates1),nl,
-    write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,Depth1),
-    modifiedMinimaxVal(Depth,States,Hoses).
+    %write('sub_even'),nl,
+    findall(NewStates,allMoves(States2,All,NewStates,States,Hoses),NewStateList),
+    %write('NEWSTATE: '),write(NewStateList),nl,
+    minimax_helper(NewStateList,Hoses,Depth1,empty,[MaxVal,MaxState]).
+    %write('Height: '),write(Depth),nl,
+    %write(MaxState),nl.
 
 %min(player1) turn(tree height is odd)
-minimax_sub(States,Hoses,Depth):-
+minimax_sub(States,Hoses,Depth,MaxVal,MaxState):-
+    %write('sub_odd'),nl,
     1 is Depth mod 2,
     Depth1 is Depth+1,
     separate(States,States1,States2),
-    allMoves(States1,All,NewStates,States,Hoses),
-    separate(NewStates,NewStates1,NewStates2),
-    write('Height: '),write(Depth1),nl,
-    write('State1: '),write(NewStates1),nl,
-    %%write('State2: '),write(NewStates2),nl,
-    minimax_sub(NewStates,Hoses,Depth1),
-    modifiedMinimaxVal(Depth,States,Hoses).
+    findall(NewStates,allMoves(States1,All,NewStates,States,Hoses),NewStateList),
+    %write('NEWSTATE: '),write(NewStateList),nl,
+    minimax_helper(NewStateList,Hoses,Depth1,empty,[MaxVal,MaxState]).
+    %write('Height: '),write(Depth),nl,
+    %write(MaxState),nl.
 
-eval(_,_,1).%:-
+minimax_helper([],_,_,[CurrentVal,CurrentState],[CurrentVal,CurrentState]):-!.
+
+minimax_helper([States|Tail],Hoses,Depth,empty,AnsPair):-
+    %findall([NewVal,NewMaxState],minimax_sub(States,Hoses,Depth,NewVal,NewMaxState),List),
+    minimax_sub(States,Hoses,Depth,MaxVal,MaxState),
+    %write('List: '),
+    %write(List),nl,
+    %maxValState(List,empty,[MaxVal,MaxState]),
+    minimax_helper(Tail,Hoses,Depth,[MaxVal,States],AnsPair).
+
+minimax_helper([States|Tail],Hoses,Depth,[CurrentVal,CurrentState],AnsPair):-
+    %findall([NewVal,NewMaxState],minimax_sub(States,Hoses,Depth,NewVal,NewMaxState),List),
+    minimax_sub(States,Hoses,Depth,MaxVal,MaxState),
+    %write('List: '),
+    %write(List),nl,
+    %maxValState(List,empty,[MaxVal,MaxState]),
+    MaxVal > CurrentVal,
+    minimax_helper(Tail,Hoses,Depth,[MaxVal,States],AnsPair),!.
+
+minimax_helper([States|Tail],Hoses,Depth,[CurrentVal,CurrentState],AnsPair):-
+    %findall([NewVal,NewMaxState],minimax_sub(States,Hoses,Depth,NewVal,NewMaxState),List),
+    minimax_sub(States,Hoses,Depth,MaxVal,MaxState),
+    %write('List: '),
+    %write(List),nl,
+    %maxValState(List,empty,[MaxVal,MaxState]),
+    MaxVal =< CurrentVal,
+    minimax_helper(Tail,Hoses,Depth,[CurrentVal,CurrentState],AnsPair),!.
+
+%eval(_,_,1).%:-
     %write('Terminated'),nl,!.
 
 %-------------------------------------------------------------------------------------------
@@ -510,9 +567,9 @@ stateUpdate(Player, States, Hoses, [[Piece,NewPos]|Remaining], ValueList, MaxVal
     %modifyHoses(NewStates, Hoses, NewHoses),
     canEat(Piece, Enemy, NewPos, States, Hoses),
     subtract(States, [[Enemy,_]], States2),
-    write(States2),nl,
     modifyStates(States2, Piece, NewPos, NewStates),
-    evalChain(Player, Piece, NewStates, Hoses, Val),
+    modifyHoses(NewStates, Hoses, NewHoses),
+    evalChain(Player, Piece, NewStates, NewHoses, Val),
     stateUpdate(Player, States, Hoses, Remaining,[Val|ValueList], MaxValue).
 
 evalChain(playerRed, CurrentPiece, States, Hoses, Value):-
@@ -520,14 +577,23 @@ evalChain(playerRed, CurrentPiece, States, Hoses, Value):-
     separate(States, RedPieces, BluePieces),
     length(RedPieces, PlayerCount),
     length(BluePieces, EnemyCount),
-    Value is PlayerCount - EnemyCount,!.
+    removeHoses(States, Hoses, [], RemainingHoses),
+    separateHoses(RemainingHoses, RedHoses, BlueHoses),
+    length(RedHoses, PlayerHosesCount),
+    length(BlueHoses, EnemyHosesCount),
+    Value is PlayerCount + 2 * PlayerHosesCount - EnemyCount - 2 * EnemyHosesCount,
+    write(States),nl,write(Hoses),write(Value), nl,!.
 
 evalChain(playerBlue, CurrentPiece, States, Hoses, Value):-
     findall([CurrentPiece,Pos], (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), []),
     separate(States, RedPieces, BluePieces),
     length(RedPieces, EnemyCount),
     length(BluePieces, PlayerCount),
-    Value is PlayerCount - EnemyCount,!.
+    removeHoses(States, Hoses, [], RemainingHoses),
+    separateHoses(RemainingHoses, RedHoses, BlueHoses),
+    length(RedHoses, EnemyHosesCount),
+    length(BlueHoses, PlayerHosesCount),
+    Value is PlayerCount + 2 * PlayerHosesCount - EnemyCount - 2 * EnemyHosesCount,!.
 
 evalChain(Player, CurrentPiece, States, Hoses, Value):-
     findall([CurrentPiece,Pos], (isOpposite(CurrentPiece,Enemy),canEat(CurrentPiece, Enemy, Pos, States, Hoses)), NewPos),
